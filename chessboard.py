@@ -72,6 +72,16 @@ class Chessboard(chess.Board):
         return row, col
 
 
+    def set_move_promotion(self, move: chess.Move):
+        piece = self.piece_at(move.from_square)
+        assert piece
+
+        if (piece.piece_type == chess.PAWN and
+            chess.square_rank(move.to_square) in (0, 7)
+        ):
+            move.promotion = chess.QUEEN
+        
+
     def is_square_dark(self, square: chess.Square) -> bool:
         file = chess.square_file(square)
         rank = chess.square_rank(square)
@@ -88,6 +98,7 @@ class Chessboard(chess.Board):
 
         if self.selected:
             move = chess.Move(self.selected, square)
+            self.set_move_promotion(move)
             if self.is_legal(move):
                 return COLORS['capture' if self.is_capture(move) else 'legal_move']
 
@@ -197,11 +208,7 @@ class Chessboard(chess.Board):
         assert piece
 
         # Set pawn promotion choice automatically for now
-        if (
-            piece.piece_type == chess.PAWN and
-            chess.square_rank(self.cursor) in (0, 7)
-        ):
-            move.promotion = chess.QUEEN
+        self.set_move_promotion(move)
 
         # Make the move if possible
         if self.is_legal(move):
