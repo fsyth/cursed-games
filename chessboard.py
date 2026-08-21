@@ -23,8 +23,8 @@ PIECES = {
 # Color pair IDs and 256-color palette values
 COLORS = {
     'text':       ColorPair(fg=-1, bg= -1),
-    'light':      ColorPair(fg= 0, bg=250),
-    'dark':       ColorPair(fg= 0, bg=247),
+    'light':      ColorPair(fg= 0, bg=223),
+    'dark':       ColorPair(fg= 0, bg=137),
     'cursor':     ColorPair(fg= 0, bg=123),
     'selected':   ColorPair(fg= 0, bg=228),
     'legal_move': ColorPair(fg= 0, bg=114),
@@ -33,7 +33,7 @@ COLORS = {
 
 
 # Sizes in characters
-SQUARE_COLS = 3
+SQUARE_COLS = 2
 SQUARE_ROWS = 1
 COORD_COL_PAD = 1
 MARGIN_LEFT = 2 * COORD_COL_PAD + 1
@@ -115,7 +115,7 @@ class Chessboard(chess.Board):
         x = col * SQUARE_COLS + MARGIN_LEFT
 
         symbol = PIECES[piece.symbol()] if piece else ' '
-        paddedSymbol = f' {symbol} '
+        paddedSymbol = f'{symbol} '
 
         pair = self.get_square_color_pair(square).to_curses()
 
@@ -132,7 +132,7 @@ class Chessboard(chess.Board):
 
         # File labels
         for file in range(8):
-            x = MARGIN_LEFT + COORD_COL_PAD + file * SQUARE_COLS
+            x = MARGIN_LEFT + file * SQUARE_COLS
             y = MARGIN_TOP + 8 * SQUARE_ROWS
             fileLabel = chr(ord('a') + file)
             self.scr.addstr(y, x, fileLabel, pair)
