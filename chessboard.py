@@ -23,8 +23,8 @@ PIECES = {
 # Color pair IDs and 256-color palette values
 COLORS = {
     'text':       ColorPair(fg=-1, bg= -1),
-    'light':      ColorPair(fg= 0, bg=250),
-    'dark':       ColorPair(fg= 0, bg=247),
+    'light':      ColorPair(fg= 0, bg=223),
+    'dark':       ColorPair(fg= 0, bg=137),
     'cursor':     ColorPair(fg= 0, bg=123),
     'selected':   ColorPair(fg= 0, bg=228),
     'legal_move': ColorPair(fg= 0, bg=114),
@@ -33,7 +33,7 @@ COLORS = {
 
 
 # Sizes in characters
-SQUARE_COLS = 3
+SQUARE_COLS = 2
 SQUARE_ROWS = 1
 COORD_COL_PAD = 1
 MARGIN_LEFT = 2 * COORD_COL_PAD + 1
@@ -48,7 +48,7 @@ class Chessboard(chess.Board):
 
         self.scr = scr
         self.running = True
-        self.selected = None
+        self.selected: chess.Square | None = None
         self.cursor = chess.E2
 
         self.setup_colors()
@@ -74,7 +74,7 @@ class Chessboard(chess.Board):
 
     def set_move_promotion(self, move: chess.Move):
         piece = self.piece_at(move.from_square)
-        assert piece
+        assert piece is not None
 
         if (piece.piece_type == chess.PAWN and
             chess.square_rank(move.to_square) in (0, 7)
@@ -96,7 +96,7 @@ class Chessboard(chess.Board):
         if square == self.cursor:
             return COLORS['cursor']
 
-        if self.selected:
+        if self.selected is not None:
             move = chess.Move(self.selected, square)
             self.set_move_promotion(move)
             if self.is_legal(move):
@@ -114,8 +114,8 @@ class Chessboard(chess.Board):
         y = row + MARGIN_TOP
         x = col * SQUARE_COLS + MARGIN_LEFT
 
-        symbol = PIECES[piece.symbol()] if piece else ' '
-        paddedSymbol = f' {symbol} '
+        symbol = PIECES[piece.symbol()] if piece is not None else ' '
+        paddedSymbol = f'{symbol} '
 
         pair = self.get_square_color_pair(square).to_curses()
 
@@ -132,7 +132,7 @@ class Chessboard(chess.Board):
 
         # File labels
         for file in range(8):
-            x = MARGIN_LEFT + COORD_COL_PAD + file * SQUARE_COLS
+            x = MARGIN_LEFT + file * SQUARE_COLS
             y = MARGIN_TOP + 8 * SQUARE_ROWS
             fileLabel = chr(ord('a') + file)
             self.scr.addstr(y, x, fileLabel, pair)
@@ -193,7 +193,7 @@ class Chessboard(chess.Board):
             piece = self.piece_at(self.cursor)
 
             # Only allow selecting the side whose turn it is
-            if piece and piece.color == self.turn:
+            if piece is not None and piece.color == self.turn:
                 self.selected = self.cursor
 
             return
@@ -205,7 +205,7 @@ class Chessboard(chess.Board):
 
         move = chess.Move(self.selected, self.cursor)
         piece = self.piece_at(self.selected)
-        assert piece
+        assert piece is not None
 
         # Set pawn promotion choice automatically for now
         self.set_move_promotion(move)
