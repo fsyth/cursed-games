@@ -41,15 +41,19 @@ MARGIN_TOP = 1
 MARGIN_BOTTOM = 1
 STATUS_MARGIN = 1
 
+PROMOTION_CHOICES = chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT
+
 
 class Chessboard(chess.Board):
     def __init__(self, scr: curses.window):
         super().__init__()
 
         self.scr = scr
-        self.running = True
+        self.is_running = True
         self.selected: chess.Square | None = None
         self.cursor = chess.E2
+        self.is_selecting_promotion = False
+        self.selected_promotion = chess.QUEEN
 
         self.setup_colors()
 
@@ -62,7 +66,7 @@ class Chessboard(chess.Board):
             curses.init_pair(color.id, color.fg, color.bg)
 
 
-    def get_square_position_y_down(self, square: chess.Square) -> tuple[int, int]:
+    def get_square_row_col(self, square: chess.Square) -> tuple[int, int]:
         file = chess.square_file(square)
         rank = chess.square_rank(square)
 
@@ -72,21 +76,16 @@ class Chessboard(chess.Board):
         return row, col
 
 
-    def set_move_promotion(self, move: chess.Move):
-        piece = self.piece_at(move.from_square)
-        assert piece is not None
-
-        if (piece.piece_type == chess.PAWN and
-            chess.square_rank(move.to_square) in (0, 7)
-        ):
-            move.promotion = chess.QUEEN
-        
-
     def is_square_dark(self, square: chess.Square) -> bool:
         file = chess.square_file(square)
         rank = chess.square_rank(square)
 
         return (rank + file) & 1 == 0
+
+
+    def requires_promotion(self, move: chess.Move):
+        promotionMove = chess.Move(move.from_square, move.to_square, chess.QUEEN)
+        return self.is_legal(promotionMove)
 
 
     def get_square_color_pair(self, square: chess.Square) -> ColorPair:
@@ -98,7 +97,10 @@ class Chessboard(chess.Board):
 
         if self.selected is not None:
             move = chess.Move(self.selected, square)
-            self.set_move_promotion(move)
+
+            if self.requires_promotion(move):
+                move.promotion = chess.QUEEN  # Only needed to check legality
+
             if self.is_legal(move):
                 return COLORS['capture' if self.is_capture(move) else 'legal_move']
 
@@ -108,7 +110,7 @@ class Chessboard(chess.Board):
     def draw_square(self, square: chess.Square):
         piece = self.piece_at(square)
 
-        row, col = self.get_square_position_y_down(square)
+        row, col = self.get_square_row_col(square)
 
         # Leave room for rank labels and file labels.
         y = row + MARGIN_TOP
@@ -120,11 +122,6 @@ class Chessboard(chess.Board):
         pair = self.get_square_color_pair(square).to_curses()
 
         self.scr.addstr(y, x, paddedSymbol, pair)
-
-
-    def draw_board(self):
-        for square in chess.SQUARES:
-            self.draw_square(square)
 
 
     def draw_coordinates_border(self):
@@ -145,8 +142,30 @@ class Chessboard(chess.Board):
             self.scr.addstr(y, x, rankLabel, pair)
 
 
+    def draw_board(self):
+        for square in chess.SQUARES:
+            self.draw_square(square)
+
+        self.draw_coordinates_border()
+
+
+    def draw_promotion_selection(self):
+        x = MARGIN_LEFT + 2 * SQUARE_COLS
+        y = MARGIN_TOP + 8 * SQUARE_ROWS + MARGIN_BOTTOM + STATUS_MARGIN
+
+        for pieceType in PROMOTION_CHOICES:
+            pairName = 'selected' if pieceType == self.selected_promotion else 'text'
+            pair = COLORS[pairName].to_curses()
+
+            piece = chess.Piece(pieceType, self.turn)
+            text = f'{PIECES[piece.symbol()]} '
+
+            self.scr.addstr(y, x, text, pair)
+            x += len(text)
+
+
     def draw_status_text(self):
-        x = COORD_COL_PAD
+        x = MARGIN_LEFT
         y = MARGIN_TOP + 8 * SQUARE_ROWS + MARGIN_BOTTOM + STATUS_MARGIN
         pair = COLORS['text'].to_curses()
 
@@ -172,13 +191,45 @@ class Chessboard(chess.Board):
         self.scr.erase()
 
         self.draw_board()
-        self.draw_coordinates_border()
-        self.draw_status_text()
+
+        if self.is_selecting_promotion:
+            self.draw_promotion_selection()
+        else:
+            self.draw_status_text()
 
         self.scr.refresh()
 
 
-    def move_cursor(self, dx, dy):
+    def move_promotion_cursor(self, d_index: int):
+        index = PROMOTION_CHOICES.index(self.selected_promotion)
+        index = (index + d_index) % len(PROMOTION_CHOICES)
+        self.selected_promotion = PROMOTION_CHOICES[index]
+
+
+    def make_promotion_move(self):
+        assert self.selected is not None
+        move = chess.Move(self.selected, self.cursor, self.selected_promotion)
+
+        assert self.is_legal(move)
+        self.push(move)
+
+        self.selected = None
+        self.is_selecting_promotion = False
+        self.selected_promotion = chess.QUEEN
+
+
+    def handle_promotion_keypress(self, key: int):
+        if key == curses.KEY_RIGHT:
+            self.move_promotion_cursor(1)
+
+        elif key == curses.KEY_LEFT:
+            self.move_promotion_cursor(-1)
+
+        elif key in (curses.KEY_ENTER, 10, 13, ord(' ')):
+            self.make_promotion_move()
+
+
+    def move_cursor(self, dx: int, dy: int):
         file = chess.square_file(self.cursor)
         rank = chess.square_rank(self.cursor)
 
@@ -204,11 +255,10 @@ class Chessboard(chess.Board):
             return
 
         move = chess.Move(self.selected, self.cursor)
-        piece = self.piece_at(self.selected)
-        assert piece is not None
 
-        # Set pawn promotion choice automatically for now
-        self.set_move_promotion(move)
+        if self.requires_promotion(move):
+            self.is_selecting_promotion = True
+            return
 
         # Make the move if possible
         if self.is_legal(move):
@@ -227,13 +277,8 @@ class Chessboard(chess.Board):
         self.selected = None
 
 
-    def handle_keypress(self):
-        key = self.scr.getch()
-
-        if key == ord('q'):
-            self.running = False
-
-        elif key == curses.KEY_UP:
+    def handle_board_keypress(self, key: int):
+        if key == curses.KEY_UP:
             self.move_cursor(0, 1)
 
         elif key == curses.KEY_DOWN:
@@ -249,13 +294,25 @@ class Chessboard(chess.Board):
             self.select_or_move()
 
 
+    def handle_keypress(self, key: int):
+        if key in (ord('q'), 27):
+            self.is_running = False
+
+        elif self.is_selecting_promotion:
+            self.handle_promotion_keypress(key)
+
+        else:
+            self.handle_board_keypress(key)
+
+
     def play(self):
         curses.curs_set(0)
         self.scr.keypad(True)
 
-        while self.running:
+        while self.is_running:
             self.render()
-            self.handle_keypress()
+            key = self.scr.getch()
+            self.handle_keypress(key)
 
 
 def main(scr: curses.window):
