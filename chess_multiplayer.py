@@ -44,7 +44,7 @@ STATUS_MARGIN = 1
 PROMOTION_CHOICES = chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT
 
 
-class Chessboard(chess.Board):
+class MultiplayerChess(chess.Board):
     def __init__(self, scr: curses.window):
         super().__init__()
 
@@ -55,6 +55,8 @@ class Chessboard(chess.Board):
         self.is_selecting_promotion = False
         self.selected_promotion = chess.QUEEN
 
+        curses.curs_set(0)
+        self.scr.keypad(True)
         self.setup_colors()
 
 
@@ -306,9 +308,6 @@ class Chessboard(chess.Board):
 
 
     def play(self):
-        curses.curs_set(0)
-        self.scr.keypad(True)
-
         while self.is_running:
             self.render()
             key = self.scr.getch()
@@ -316,7 +315,7 @@ class Chessboard(chess.Board):
 
 
 def main(scr: curses.window):
-    board = Chessboard(scr)
+    board = MultiplayerChess(scr)
     board.play()
 
 
