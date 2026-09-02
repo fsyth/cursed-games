@@ -10,13 +10,14 @@ class SoloChess(MultiplayerChess):
 
 
     def play(self, player_color=chess.WHITE):
-        while self.is_running:
+        self.is_playing = True
+
+        while self.is_playing:
+            self.render()
+
             if self.turn == player_color or self.is_game_over():
-                self.render()
-                key = self.scr.getch()
-                self.handle_keypress(key)
+                self.handle_keypress(self.scr.getch())
             else:
-                self.render()
                 self.push(self.get_cpu_move())
 
 

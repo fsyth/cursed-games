@@ -49,7 +49,6 @@ class MultiplayerChess(chess.Board):
         super().__init__()
 
         self.scr = scr
-        self.is_running = True
         self.selected: chess.Square | None = None
         self.cursor = chess.E2
         self.is_selecting_promotion = False
@@ -298,7 +297,7 @@ class MultiplayerChess(chess.Board):
 
     def handle_keypress(self, key: int):
         if key in (ord('q'), 27):
-            self.is_running = False
+            self.is_playing = False
 
         elif self.is_selecting_promotion:
             self.handle_promotion_keypress(key)
@@ -308,7 +307,9 @@ class MultiplayerChess(chess.Board):
 
 
     def play(self):
-        while self.is_running:
+        self.is_playing = True
+
+        while self.is_playing:
             self.render()
             key = self.scr.getch()
             self.handle_keypress(key)
