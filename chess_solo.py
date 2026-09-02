@@ -4,6 +4,7 @@ from random import choice
 
 from chess_multiplayer import MultiplayerChess
 
+
 class SoloChess(MultiplayerChess):
     def get_cpu_move(self):
         return choice(list(self.legal_moves))
