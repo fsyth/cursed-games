@@ -3,9 +3,9 @@ import curses
 
 class Square:
     EMPTY = 0
-    PLAYER_X = 1
-    PLAYER_O = 2
-    TOKENS = ' ', '⨉', '○'
+    PLAYER_O = 1
+    PLAYER_X = 2
+    TOKENS = ' ', '○', '⨉'
 
 
     def __init__(self, player = EMPTY):
@@ -13,14 +13,14 @@ class Square:
 
 
     def get_token(self, isSelected = False):
-        token = Square.TOKENS[self.player]
+        token = self.TOKENS[self.player]
         color = curses.color_pair(self.player) | (
             isSelected and curses.A_UNDERLINE)
 
         return token, color
 
 
-class Board:
+class MultiplayerNoughts:
     DESIGN = (
         ' 0 │ 1 │ 2 ',
         '───┼───┼───',
@@ -53,12 +53,18 @@ class Board:
 
     def __init__(self):
         self.selected_index = 0
-        self.current_player = Square.PLAYER_X
+        self.current_player = Square.PLAYER_O
         self.clear_board()
+
+        curses.curs_set(0)
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_BLUE, -1)  # player O
+        curses.init_pair(2, curses.COLOR_RED,  -1)  # player X
 
 
     def clear_board(self):
-        self.squares = [Square() for _ in range(Board.SIZE)]
+        self.squares = [Square() for _ in range(self.SIZE)]
         self.is_game_over = False
         self.winner = Square.EMPTY
 
@@ -75,42 +81,42 @@ class Board:
         elif key_code == curses.KEY_DOWN:
             self.move_down()
         elif key_code == ord(' ') or key_code == ord('\n'):
-            self.make_move()
+            self.make_move(self.selected_index)
 
 
     def move_left(self):
-        if self.selected_index % Board.COLS == 0:
-            self.selected_index += Board.LAST_COL
+        if self.selected_index % self.COLS == 0:
+            self.selected_index += self.LAST_COL
         else:
             self.selected_index -= 1
 
 
     def move_right(self):
-        if self.selected_index % Board.COLS == Board.LAST_COL:
-            self.selected_index -= Board.LAST_COL
+        if self.selected_index % self.COLS == self.LAST_COL:
+            self.selected_index -= self.LAST_COL
         else:
             self.selected_index += 1
 
 
     def move_up(self):
-        if self.selected_index < Board.COLS:
-            self.selected_index += Board.LAST_ROW
+        if self.selected_index < self.COLS:
+            self.selected_index += self.LAST_ROW
         else:
-            self.selected_index -= Board.COLS
+            self.selected_index -= self.COLS
 
 
     def move_down(self):
-        if self.selected_index >= Board.LAST_ROW:
-            self.selected_index -= Board.LAST_ROW
+        if self.selected_index >= self.LAST_ROW:
+            self.selected_index -= self.LAST_ROW
         else:
-            self.selected_index += Board.COLS
+            self.selected_index += self.COLS
 
 
-    def make_move(self):
+    def make_move(self, selected_index: int):
         if self.is_game_over:
             return
 
-        selected_square = self.squares[self.selected_index]
+        selected_square = self.squares[selected_index]
 
         if selected_square.player != Square.EMPTY:  # already occupied
             return
@@ -122,7 +128,7 @@ class Board:
 
     def check_game_state(self):
         # Check for win
-        for i, j, k in Board.WINNING_LINES:
+        for i, j, k in self.WINNING_LINES:
             p = self.squares[i].player
             if p != Square.EMPTY and p == self.squares[j].player == self.squares[k].player:
                 self.winner = p
@@ -130,31 +136,30 @@ class Board:
                 return
 
         # Check for draw
-        if all(s.player != Square.EMPTY for s in self.squares):
+        if all(square.player != Square.EMPTY for square in self.squares):
             self.is_game_over = True
 
 
     def render(self, scr: curses.window):
         scr.clear()
 
-        for row, line in enumerate(Board.DESIGN):
+        for row, line in enumerate(self.DESIGN):
             scr.addstr(row, 0, line)
 
         for i, square in enumerate(self.squares):
-            row, col = Board.SLOT_POSITIONS[i]
+            row, col = self.SLOT_POSITIONS[i]
             is_selected = i == self.selected_index
             token, color = square.get_token(is_selected)
             scr.addstr(row, col, token, color)
 
         color = curses.color_pair(self.current_player)
         msg = f"Player {self.current_player}'s turn."
-        scr.addstr(Board.INFO_ROW, 0, msg, color)
+        scr.addstr(self.INFO_ROW, 0, msg, color)
         scr.refresh()
 
 
     def render_end_state(self, scr: curses.window):
-        if not self.is_game_over:
-            return
+        assert self.is_game_over
 
         if self.winner:
             msg = f"Player {self.winner} wins! Press any key to restart."
@@ -162,19 +167,14 @@ class Board:
             msg = "It's a draw! Press any key to restart."
 
         color = curses.color_pair(self.winner)
-        scr.addstr(Board.INFO_ROW, 0, msg, color)
+        scr.addstr(self.INFO_ROW, 0, msg, color)
         scr.refresh()
         scr.getch()
 
 
     def play(self, scr: curses.window):
-        curses.curs_set(0)
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_RED,  -1)  # player 1
-        curses.init_pair(2, curses.COLOR_BLUE, -1)  # player 2
-
         self.is_playing = True
+
         while self.is_playing:
             self.render(scr)
 
@@ -183,12 +183,11 @@ class Board:
                 self.clear_board()
                 continue
 
-            key_code = scr.getch()
-            self.handle_keypress(key_code)
+            self.handle_keypress(scr.getch())
 
 
 def main(scr: curses.window):
-    board = Board()
+    board = MultiplayerNoughts()
     board.play(scr)
 
 
