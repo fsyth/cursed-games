@@ -44,17 +44,18 @@ STATUS_MARGIN = 1
 PROMOTION_CHOICES = chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT
 
 
-class Chessboard(chess.Board):
+class MultiplayerChess(chess.Board):
     def __init__(self, scr: curses.window):
         super().__init__()
 
         self.scr = scr
-        self.is_running = True
         self.selected: chess.Square | None = None
         self.cursor = chess.E2
         self.is_selecting_promotion = False
         self.selected_promotion = chess.QUEEN
 
+        curses.curs_set(0)
+        self.scr.keypad(True)
         self.setup_colors()
 
 
@@ -296,7 +297,7 @@ class Chessboard(chess.Board):
 
     def handle_keypress(self, key: int):
         if key in (ord('q'), 27):
-            self.is_running = False
+            self.is_playing = False
 
         elif self.is_selecting_promotion:
             self.handle_promotion_keypress(key)
@@ -306,17 +307,16 @@ class Chessboard(chess.Board):
 
 
     def play(self):
-        curses.curs_set(0)
-        self.scr.keypad(True)
+        self.is_playing = True
 
-        while self.is_running:
+        while self.is_playing:
             self.render()
             key = self.scr.getch()
             self.handle_keypress(key)
 
 
 def main(scr: curses.window):
-    board = Chessboard(scr)
+    board = MultiplayerChess(scr)
     board.play()
 
 
